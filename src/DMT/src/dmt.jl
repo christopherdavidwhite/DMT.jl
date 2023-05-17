@@ -107,7 +107,7 @@ function dmt(A    :: ITensor,
 
     Utrunc = ITensor(F.U[:,1:χ], βL, βu)
     Strunc = diagITensor(F.S[1:χ], βu, βv)
-    Vtrunc = ITensor(F.Vt[:,1:χ], βv, βR)
+    Vtrunc = ITensor(F.Vt[1:χ,:], βv, βR)
 
     return Uq*Utrunc, Strunc, Vtrunc*Vq
 end
@@ -138,7 +138,11 @@ function bchg_tensor(B :: Array{<:ITensor},
     return Bchg,outind
 end
 
-function apply_dmt!(G, ψ, j, χmax, center_to=:l)
+function apply_dmt!(G :: ITensor,
+                    ψ :: MPS,
+                    j :: Integer,
+                    χmax :: Integer,
+                    center_to :: Symbol =:l)
     ψj   = ψ.data[j]
     ψjp1 = ψ.data[j+1]
 
@@ -151,7 +155,9 @@ function apply_dmt!(G, ψ, j, χmax, center_to=:l)
 	αL = commoninds(ψj, ψ.data[j-1])
     end
 
-    U,S,V = dmt(noprime(G*ψj*ψjp1), sl, sr, αL, χmax)
+    Gψψ = noprime(G*ψj*ψjp1)
+    #U,S,V = svd(Gψψ, sl)
+    U,S,V = dmt(Gψψ, sl, sr, αL, χmax)
     
     if center_to == :r
         α = commonind(U,S)

@@ -1,8 +1,10 @@
 name = "TEBD"
 
 [deps]
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
 DMT = "9c44f795-9d84-4883-8688-ed6ea0be3dc8"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
 
 [compat]
 DrWatson = "2.11.1"
