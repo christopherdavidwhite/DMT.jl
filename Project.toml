@@ -3,8 +3,12 @@ name = "TEBD"
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
 DMT = "9c44f795-9d84-4883-8688-ed6ea0be3dc8"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 Gadfly = "c91e804a-d5a3-530f-b6f0-dfbca275c004"
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
 
 [compat]
