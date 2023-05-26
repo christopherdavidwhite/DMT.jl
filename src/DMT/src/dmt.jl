@@ -9,7 +9,7 @@ export double
 export dmc!
 export sweep_dmc!
 export onsite_expectation_values
-export nn_expectation_values
+export nnev_as_vector
 
 function thick_qr_qdag(A :: ITensor, Linds :: Vector{<:Index})
     Rinds = setdiff(inds(A) , Linds)
@@ -56,8 +56,10 @@ function check_dmc(A :: ITensor,
     βfree = inds(Cfree)[1]
     dfree = dim(βfree)
     δ = array(otrace(A*Cfree,[βfree,αout]), βfree, αout)[:,dfree+1:end] |> norm
-    if !quiet && δ >= 1e-10 println("check_dmc: block norm δ = $δ") end
-    return( δ < 1e-10 )
+    tensor_norm = norm(A)
+    good = δ/tensor_norm <= 1e-10
+    if !quiet && !good println("check_dmc: tensor norm $tensor_norm; block norm δ = $δ") end
+    return( good )
 end
 
 
@@ -74,6 +76,10 @@ function dmt(A    :: ITensor,
     αu = commoninds(U,s)[1]
     αv = commoninds(V,s)[1]
 
+    if dim(αu) < χmax # not doing any truncation
+        return U,s,V
+    end
+        
     qLd,βL = dmc_gauge(U,[σL], αu)
     qRd,βR = dmc_gauge(V,[σR], αv)
     Uq = U*qLd
@@ -88,7 +94,7 @@ function dmt(A    :: ITensor,
 
     F = svd(Ma_sub)    ###### SVD
     St = F.S
-    χmax = max(χmax, size(St)[1])
+    χmax = min(χmax, size(St)[1])
     St[χmax+1:end] .= 0
     Ma_subtrunc = F.U*Diagonal(St)*F.Vt
 
@@ -143,6 +149,7 @@ function apply_dmt!(G :: ITensor,
                     j :: Integer,
                     χmax :: Integer,
                     center_to :: Symbol =:l)
+
     ψj   = ψ.data[j]
     ψjp1 = ψ.data[j+1]
 
@@ -228,6 +235,8 @@ dmc!(ψ :: MPS) = sweep_dmc!(ψ, length(ψ), 1)
 function sweep_dmc!(ψ :: MPS,
 		    old_center :: Integer,
 		    new_center :: Integer,)
+    @assert 1 <= old_center <= length(ψ)
+    @assert 1 <= new_center <= length(ψ)
     sites = siteinds(ψ)
     if old_center == new_center
 	return ψ
@@ -363,4 +372,9 @@ function nn_expectation_values(ψ :: MPS)
 
     dmc!(ψ)
     return expct
+end
+
+function nnev_as_vector(ψ)
+    nnev = nn_expectation_values(ψ)
+    return [nnev[:,:,j] for j = 1:size(nnev,3)]
 end
