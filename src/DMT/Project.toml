@@ -1,0 +1,8 @@
+name = "DMT"
+uuid = "9c44f795-9d84-4883-8688-ed6ea0be3dc8"
+authors = ["Christopher White <christopher.white@alumni.rice.edu>"]
+version = "0.1.0"
+
+[deps]
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
