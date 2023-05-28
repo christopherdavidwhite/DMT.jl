@@ -96,8 +96,10 @@ function run_te(params)
     @assert params[:init] == :ε
     dt = params[:dt]
 
-    fn = datadir("$jobname/$subdate/$commit/"* savename(params) * ".jld2")
+    fn = datadir("$jobname/$subdate/$commit/"* savename(params) * ".arrow")
     fn |> dirname |> mkpath
+    #heap_fn = datadir("profiling/$jobname/$subdate/$commit/"* savename(params) * ".heapsnapshot")
+    #heap_fn |> dirname |> mkpath
     @show fn
     jc = Int(params[:L]/2) #center
 
@@ -114,14 +116,19 @@ function run_te(params)
 
     @showprogress for t = dt:dt:T
 	step_ctime = (@timed apply_trotterstep_itensorexample!(gates,params[:χmax],ψ)).time
-	df = [df; ( params ∪ [:t  => t,
-			      :step_ctime => step_ctime,
-			      :j  => 1:params[:L]-1,
-			      :χ  => getχ(ψ),
-			      :norm => norm(ψ),
-			      :ev => nnev_as_vector(ψ),
-			      ] ) |> DataFrame ]
-	Arrow.write(fn,df)
+        if t % 1 == 0
+	    df = [df; ( params ∪ [:t  => t,
+			          :step_ctime => step_ctime,
+			          :j  => 1:params[:L]-1,
+			          :χ  => getχ(ψ),
+			          :norm => norm(ψ),
+			          :ev => nnev_as_vector(ψ),
+			          ] ) |> DataFrame ]
+	    Arrow.write(fn,df)
+        end
+        #if t % 10 == 0
+        #    Profile.take_heap_snapshot(heap_fn)
+        #end
     end
 
     return df
@@ -139,7 +146,7 @@ function getχ(ψ :: MPS)
     return χ
 end
 
-lgLmax = 8
+lgLmax = 7
 lgχmax = 9
 
 Ls = 2 .^ (3:lgLmax)
