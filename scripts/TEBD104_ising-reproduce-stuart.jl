@@ -6,6 +6,7 @@ using Dates
 using DataFrames
 using ProgressMeter
 using DMT
+#using Profile
 
 function ising_energy_density_tensors(L, hx, hz)
     s = siteinds("S=1/2", L; conserve_qns=false)
