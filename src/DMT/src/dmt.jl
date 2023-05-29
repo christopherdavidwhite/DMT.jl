@@ -17,10 +17,33 @@ function thick_qr_qdag(A :: ITensor, Linds :: Vector{<:Index})
     CL = combiner(Linds); CLind = inds(CL)[1]
     CR = combiner(Rinds); CRind = inds(CR)[1]
     qthing,r = array(CL * A * CR, CLind, CRind) |> qr
+    #=
+    ## ATTEMPT 1:
+    
     qdarr = Array(qthing')
     newα = Index(size(qdarr,1), "qr")
     @assert dim(newα) == dim(CLind)
-    qd = CL*ITensor(qdarr, newα , CLind)
+    
+    # the first bit, Array(qthing'), is v. slow. Presumably a whole
+    # bunch of accesses to go from Householder reflections to a full
+    # array.
+    
+    # ATTEMPT 2:
+    
+    newα = Index(dim(CLind), "qr")
+    qd = CL*ITensor(qthing', newα , CLind)
+    # now ITensor construction is OK, but a later combiner
+    # multiplication is slow, presumably for the same reason. (Should
+    # be a way to optimize that away, just keeping the Householder
+    # format, but I'm not going to worry about that.
+
+    =#
+    # ATTEMPT 3:
+    
+    N = dim(CLind)
+    newα = Index(N, "qr")
+    qd = CL*ITensor(qthing'*LinearAlgebra.I(N) ,newα,CLind)
+
     return (qd,newα)
 end
 
