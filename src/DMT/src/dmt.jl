@@ -9,6 +9,7 @@ export double
 export dmc!
 export sweep_dmc!
 export onsite_expectation_values
+export nn_expectation_values
 export nnev_as_vector
 
 function thick_qr_qdag(A :: ITensor, Linds :: Vector{<:Index})
