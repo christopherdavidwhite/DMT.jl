@@ -1,3 +1,4 @@
+using MKL
 using DrWatson
 quickactivate(pwd())
 using ITensors
