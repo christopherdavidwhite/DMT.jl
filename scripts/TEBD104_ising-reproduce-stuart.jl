@@ -98,7 +98,7 @@ function run_te(params)
     @assert params[:init] == :ε
     dt = params[:dt]
 
-    fn = datadir("$jobname/$subdate/$commit/"* savename(params) * ".arrow")
+    fn = datadir("$jobname/$subdate/$commit/"* savename(params) *"/")
     fn |> dirname |> mkpath
     #heap_fn = datadir("profiling/$jobname/$subdate/$commit/"* savename(params) * ".heapsnapshot")
     #heap_fn |> dirname |> mkpath
@@ -108,25 +108,26 @@ function run_te(params)
     B,C,sharpind,bond_energy_ops = ising_energy_density_tensors(params[:L],params[:hx],params[:hz])
     ψ = energydensity_mpo(sharpind, B, C, bond_energy_ops,jc)
     gates = trottergates_itensor_example(B,C,bond_energy_ops,params[:dt])
-    df = ( params ∪ [:t  => 0,
-		     :step_ctime => 0,
-		     :j  => 1:params[:L]-1,
-		     :χ  => getχ(ψ),
-		     :norm => norm(ψ),
-		     :ev => nnev_as_vector(ψ),
-		     ] ) |> DataFrame
+    df = (params ∪ [:t  => 0.0,
+		    :step_ctime => 0.0,
+		    :j  => 1:params[:L]-1,
+		    :χ  => getχ(ψ),
+		    :norm => norm(ψ),
+		    :ev => nnev_as_vector(ψ),
+		    ]) |> DataFrame
+    Arrow.write(fn*"t=0.0.arrow",df)
 
     @showprogress for t = dt:dt:T
 	step_ctime = (@timed apply_trotterstep_itensorexample!(gates,params[:χmax],ψ)).time
         if t % 1 == 0
-	    df = [df; ( params ∪ [:t  => t,
-			          :step_ctime => step_ctime,
-			          :j  => 1:params[:L]-1,
-			          :χ  => getχ(ψ),
-			          :norm => norm(ψ),
-			          :ev => nnev_as_vector(ψ),
-			          ] ) |> DataFrame ]
-	    Arrow.write(fn,df)
+	    tdf = ( params ∪ [:t  => t,
+			      :step_ctime => step_ctime,
+			      :j  => 1:params[:L]-1,
+			      :χ  => getχ(ψ),
+			      :norm => norm(ψ),
+			      :ev => nnev_as_vector(ψ),
+			      ] ) |> DataFrame
+            Arrow.write(fn*savename(@dict t)*".arrow",tdf)
         end
         #if t % 10 == 0
         #    Profile.take_heap_snapshot(heap_fn)

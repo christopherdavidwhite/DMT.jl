@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "c99325f56e7660a0d0dc33ea5431b837ec5de7e3"
+project_hash = "fa71e3b0bdedc82be933d01c08adfb6214df24bc"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1132,6 +1132,12 @@ version = "0.4.76"
 git-tree-sha1 = "3c712976c47707ff893cf6ba4354aa14db1d8938"
 uuid = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 version = "1.3.0"
+
+[[deps.TypedTables]]
+deps = ["Adapt", "Dictionaries", "Indexing", "SplitApplyCombine", "Tables", "Unicode"]
+git-tree-sha1 = "d911ae4e642cf7d56b1165d29ef0a96ba3444ca9"
+uuid = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
+version = "1.4.3"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]

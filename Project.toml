@@ -11,6 +11,7 @@ ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
 MKL = "33e6dc65-8f57-5167-99aa-e5a354878fb2"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
+TypedTables = "9d95f2ec-7b3d-5a63-8d20-e2491e220bb9"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
