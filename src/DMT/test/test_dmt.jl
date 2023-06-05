@@ -5,6 +5,7 @@ a4 = Index(7)
 
 
 Nr = 10
+
 @testset "thick_qr_qdag" begin
     for r = 1:Nr
 	A = randomITensor(a1,a2,a3,a4)
@@ -58,7 +59,6 @@ end
     αin = Index(5)
     αout = Index(5)
 
-    Nr = 10
     for r = 1:Nr
 	A = randomITensor(σ,αin,αout)
 	qd,newα = dmc_gauge(A,[σ],αout)
@@ -73,19 +73,18 @@ end
     σ1 = Index(2)
     σ2 = Index(2)
 
-    Nr = 10
     for r = 1:Nr
 	A = randomITensor(αL,σ1,σ2,αR)
 	A_keep = otrace(A, [σ1,σ2])
 	Linds = [αL,σ1]
 
 	χmax = dim(αL)*dim(σ1)
-	Ut,St,Vt = dmt(A, σ1, σ2, [αL], χmax)
+        Ut,St,Vt = dmt(A, σ1, σ2, [αL], Dict([:maxdim => χmax]))
 	@test norm(A - Ut*St*Vt) < 1e-10
 
 
-	χmax = 0
-	Ut,St,Vt = dmt(A, σ1, σ2, [αL], χmax)
+	χmax = 1
+        Ut,St,Vt = dmt(A, σ1, σ2, [αL], Dict([:maxdim => χmax]))
 	Atrunc_keep = otrace(Ut*St*Vt,[σ1, σ2])
 	@test norm(A_keep - Atrunc_keep) < 1e-10
     end
@@ -96,19 +95,18 @@ end
     σ2 = Index(2)
     σ3 = Index(2)
 
-    Nr = 10
     for r = 1:Nr
 	A = randomITensor(αL,σ1,σ2,σ3,αR)
 	A_keep = otrace(A, [σ1,σ2])
 	Linds = [αL,σ1]
 
 	χmax = dim(αL)*dim(σ1)
-	Ut,St,Vt = dmt(A, σ2, σ3, [αL,σ1], χmax)
+        Ut,St,Vt = dmt(A, σ2, σ3, [αL,σ1], Dict([:maxdim => χmax]))
 	@test norm(A - Ut*St*Vt) < 1e-10
 
 
-	χmax = 0
-	Ut,St,Vt = dmt(A, σ2, σ3, [αL,σ1], χmax)
+	χmax = 1
+        Ut,St,Vt = dmt(A, σ2, σ3, [αL,σ1], Dict([:maxdim => χmax]))
 	Atrunc_keep = otrace(Ut*St*Vt,[σ1, σ2])
 	@test norm(A_keep - Atrunc_keep) < 1e-10
     end
@@ -157,7 +155,6 @@ end
 	@test B[1]*Ud*dag(B[1]') |> imag |> norm < 1e-10
     end
 
-    Nr = 10
     for r = 1:Nr
 	H = sum(randn()*op(o, s[1]) for o in ["I", "X", "Y", "Z"])
 	local U = exp(-im*H*0.2)
@@ -347,3 +344,162 @@ end
 				        0  0  0 0 ;
 				        hz 0  0 1]
 end
+
+    
+
+@testset "apply_dmt3_left! notrunc" begin
+    L = 5
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                ψ = randomMPS(s, 3)
+                G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                  s[j]', s[j+1]', s[j+2]')
+
+                A0 = prod(ψ)*G |> noprime
+                apply_dmt3_left!(G,ψ,j,Dict([:maxdim=>100]))
+                A1 = prod(ψ)
+                @test norm( A0 - A1) <= 1e-10
+            end
+        end
+    end
+end
+
+@testset "apply_dmt3_left! truncate" begin
+    L = 7
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                ψ = randomMPS(s, 20)
+                G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                  s[j]', s[j+1]', s[j+2]')
+
+                nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
+                dmc!(ψ)
+                sweep_dmc!(ψ,1,j)
+                apply_dmt3_left!(G,ψ,j,Dict([:maxdim => 2]))
+                #result is not really an MPS. Do the dumb easy thing: roundtrip through just the state tensor.
+                nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
+                @test norm(nnev0 - nnev1) <= 1e-10
+            end
+        end
+    end
+end
+
+@testset "apply_dmt3_rght! notrunc" begin
+    Nr = 10
+    L = 8
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                ψ = randomMPS(s, 3)
+                G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                  s[j]', s[j+1]', s[j+2]')
+
+                A0 = prod(ψ)*G |> noprime
+                apply_dmt3_rght!(G,ψ,j,Dict([:maxdim => 100]))
+                A1 = prod(ψ)
+                @test norm( A0 - A1) <= 1e-10
+            end
+        end
+    end
+end
+
+  @testset "apply_dmt3_rght! truncate" begin
+      Nr = 10
+      L = 5
+      s = [Index(2) for j = 1:L]
+      for T = [Float64,Complex{Float64}]
+          for r = 1:Nr
+              for j = 1:L-2
+                  ψ = randomMPS(s, 5)
+                  G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                    s[j]', s[j+1]', s[j+2]')
+
+                  nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
+                  dmc!(ψ)
+                  sweep_dmc!(ψ,1,j)
+                  apply_dmt3_rght!(G,ψ,j,Dict([:maxdim =>1]))
+                  # result is not really an MPS, because it's collapsed two of the site tensors into one
+                  # these are (j+1,j+2)
+                  # Do the dumb easy thing: roundtrip through just the state tensor.
+                  nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
+                  @test norm(nnev0 - nnev1) <= 1e-10
+              end
+          end
+      end
+  end
+
+  @testset "apply_dmt3_both! notrunc" begin
+      Nr = 10
+      L = 8
+      s = [Index(2) for j = 1:L]
+      for T = [Float64,Complex{Float64}]
+          for r = 1:Nr
+              for j = 1:L-2
+                  for center_to = [:l, :r, :c]
+                      ψ = randomMPS(s, 5)
+                      G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                        s[j]', s[j+1]', s[j+2]')
+
+                      A0 = prod(ψ)*G |> noprime
+
+                      dmc!(ψ)
+                      sweep_dmc!(ψ,1,j)
+
+                      apply_dmt3_both!(G,ψ,j,Dict(:maxdim => 100),center_to)
+                      A1 = prod(ψ)
+                      @test norm( A0 - A1) <= 1e-10
+
+
+                      if     center_to == :l
+                          @test check_dmc(ψ, j,quiet=false)
+                      elseif center_to == :c
+                          @test check_dmc(ψ, j+1,quiet=false)
+                      elseif center_to == :r
+                          @test check_dmc(ψ, j+2,quiet=false)
+                      else error()
+                      end
+                  end
+              end
+          end
+      end
+  end
+
+  @testset "apply_dmt3_both! truncate" begin
+      Nr = 10
+      L = 5
+      s = [Index(2) for j = 1:L]
+      for T = [Float64,Complex{Float64}]
+          for r = 1:Nr
+              for j = 1:L-2
+                  for center_to = [:l, :r, :c]
+
+                      ψ = randomMPS(s, 5)
+                      G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                        s[j]', s[j+1]', s[j+2]')
+
+                      nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
+                      dmc!(ψ)
+                      sweep_dmc!(ψ,1,j)
+                      apply_dmt3_both!(G,ψ,j,Dict(:maxdim => 1),center_to)
+                      nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
+                      @test norm(nnev0 - nnev1) <= 1e-10
+
+                      if     center_to == :l
+                          @test check_dmc(ψ, j,quiet=false)
+                      elseif center_to == :c
+                          @test check_dmc(ψ, j+1,quiet=false)
+                      elseif center_to == :r
+                          @test check_dmc(ψ, j+2,quiet=false)
+                      else error()
+                      end
+
+                  end
+              end
+          end
+      end
+  end

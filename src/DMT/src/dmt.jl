@@ -3,7 +3,7 @@ export dmc_gauge
 export check_dmc
 export otrace
 export dmt
-export apply_dmt!
+export apply_dmt!, apply_dmt3_left!, apply_dmt3_rght!, apply_dmt3_both!
 export bchg_tensor
 export double
 export dmc!
@@ -86,24 +86,32 @@ function check_dmc(A :: ITensor,
     return( good )
 end
 
-
 function dmt(A    :: ITensor,
-	     σL   :: Index,
-	     σR   :: Index,
-	     αL   :: Vector{<:Index},
-	     χmax :: Integer)
+             σL   :: Index, #space on L to preserve
+             σR   :: Index, #space on R to preserve
+             αL   :: Vector{<:Index},
+             dmt_params, 
+             svd_params = Dict([:cutoff => 1e-16, :use_relative_cutoff => true])
+             )
 
     @assert [σL, σR] ∪ αL ⊆ inds(A)
+    dσL = dim(σL)
+    dσR = dim(σR)
+
+    χmax = dmt_params[:maxdim]
 
     Linds = [σL]∪ αL
-    U,s,V = svd(A,Linds...) ###### SVD
+    U,s,V = svd(A,Linds...; svd_params...) ###### SVD
+    if size(s,1) <= dσL || size(s,2) <= dσR
+        return U,s,V
+    end 
     αu = commoninds(U,s)[1]
     αv = commoninds(V,s)[1]
 
     if dim(αu) < χmax # not doing any truncation
         return U,s,V
     end
-        
+
     qLd,βL = dmc_gauge(U,[σL], αu)
     qRd,βR = dmc_gauge(V,[σR], αv)
     Uq = U*qLd
@@ -114,33 +122,20 @@ function dmt(A    :: ITensor,
 
     Ma = array(M, βL, βR)
 
-    Ma_sub = Ma[5:end, 5:end]
-
-    F = svd(Ma_sub)    ###### SVD
-    St = F.S
-    χmax = min(χmax, size(St)[1])
-    St[χmax+1:end] .= 0
-    Ma_subtrunc = F.U*Diagonal(St)*F.Vt
-
-    Ma[5:end, 5:end] = Ma_subtrunc
-
-    F = svd(Ma)      ###### SVD
-    χp1 = findfirst(F.S .< 1e-14*norm(F.S))
-    if χp1 != nothing
-	χ = χp1 - 1
-    else
-	χ = size(F.S,1)
-    end
-
-    βu = Index(χ)
-    βv = Index(χ)
-
-    Utrunc = ITensor(F.U[:,1:χ], βL, βu)
-    Strunc = diagITensor(F.S[1:χ], βu, βv)
-    Vtrunc = ITensor(F.Vt[1:χ,:], βv, βR)
+    Ma_sub = Ma[dσL+1:end, dσR+1:end]
+    Ma_subt = tensor(Dense(Ma_sub),size(Ma_sub))
+    
+    #If I need to I can dodge an allocation by using mul~!
+    U,S,V, = svd(Ma_subt;dmt_params...)
+    Ma_subtrunc = array(U) *array(S)*array(V)'
+    Ma[dσL+1:end, dσR+1:end] = Ma_subtrunc
+    
+    Mp = ITensor(Ma, βL, βR)
+    Utrunc, Strunc, Vtrunc = svd(Mp, βL; svd_params...) ###### SVD
 
     return Uq*Utrunc, Strunc, Vtrunc*Vq
 end
+
 
 function double(A :: ITensor, C :: Vector{ITensor})
     #@assert inds(A) ⊆ union([c |> inds |> collect for c in C]...)
@@ -171,7 +166,7 @@ end
 function apply_dmt!(G :: ITensor,
                     ψ :: MPS,
                     j :: Integer,
-                    χmax :: Integer,
+                    dmt_params :: Dict,
                     center_to :: Symbol =:l)
 
     ψj   = ψ.data[j]
@@ -188,7 +183,7 @@ function apply_dmt!(G :: ITensor,
 
     Gψψ = noprime(G*ψj*ψjp1)
     #U,S,V = svd(Gψψ, sl)
-    U,S,V = dmt(Gψψ, sl, sr, αL, χmax)
+    U,S,V = dmt(Gψψ, sl, sr, αL, dmt_params)
     
     if center_to == :r
         α = commonind(U,S)
@@ -214,6 +209,127 @@ function apply_dmt!(G :: ITensor,
     return ψ
 end
 
+function apply_dmt3_left!(G :: ITensor, #3-site tensor
+                          ψ :: MPS,
+                          j :: Integer, #leftmost site on which $G$ acts
+                          dmt_params :: Dict,
+                          )
+
+    ψj   = ψ.data[j]
+    ψjp1 = ψ.data[j+1]
+    ψjp2 = ψ.data[j+2]
+
+    sl = (commoninds(ψj,G) |> scalar)
+    sc = (commoninds(ψjp1,G) |> scalar)
+    sr = (commoninds(ψjp2,G) |> scalar)
+
+    if j == 1
+        αL = Index[]
+    else
+        αL = commoninds(ψj, ψ.data[j-1])
+    end
+
+    Gψψψ = noprime(G*(ψj*(ψjp1*ψjp2)))
+
+    U,S,V = dmt(Gψψψ, sl, sc, αL, dmt_params)
+    α = commonind(S,V)
+    qd, = dmc_gauge(V, [sc],α)
+
+    ψ.data[j]   = U*S*dag(qd)
+    ψ.data[j+1] = qd*V
+    ψ.data[j+2] = ITensor(1) #fake
+
+    # new orth center is j
+    ψ.llim = j-1
+    ψ.rlim = j+1
+
+    return ψ
+end
+
+# apply 3-site tensor & truncate left bond;
+# orth. center on double-site tensor on j,j+1
+function apply_dmt3_both!(G :: ITensor, #3-site tensor
+                          ψ :: MPS,
+                          j :: Integer, #leftmost site on which $G$ acts
+                          dmt_params :: Dict,
+                          center_to = :l,
+                          )
+    ψj   = ψ.data[j]
+    ψjp1 = ψ.data[j+1]
+    ψjp2 = ψ.data[j+2]
+
+    sl = (commoninds(ψj,G) |> scalar)
+    sc = (commoninds(ψjp1,G) |> scalar)
+    sr = (commoninds(ψjp2,G) |> scalar)
+
+    if j == 1
+        αL = Index[]
+    else
+        αL = commoninds(ψj, ψ.data[j-1])
+    end
+
+    Gψψψ = noprime(G*(ψj*(ψjp1*ψjp2)))
+
+    if center_to == :l
+        U,S,V = dmt(Gψψψ, sc, sr, αL ∪ [sl], dmt_params)
+        α = commonind(S,V)
+        qd, newα = dmc_gauge(V, [sr],α)
+
+        ψ.data[j+2] = V*qd
+
+        U,S,V = dmt(U*S*dag(qd), sl, sc, [newα], dmt_params)
+        α = commonind(S,V)
+        qd, = dmc_gauge(V, [sc],α)
+
+        ψ.data[j+1] = qd*V
+        ψ.data[j+0] = U*S*dag(qd)
+
+        # new orth center is j
+        ψ.llim = j-1
+        ψ.rlim = j+1
+
+    elseif center_to == :r
+        U,S,V = dmt(Gψψψ, sl, sc, αL, dmt_params)
+        α = commonind(U,S)
+        qd,newα = dmc_gauge(U, [sl],α)
+
+        ψ.data[j+0]   = U*qd
+
+        U,S,V = dmt(dag(qd)*S*V, sc, sr, [newα], dmt_params)
+        α = commonind(U,S)
+        qd, = dmc_gauge(U, [sc],α)
+
+
+        ψ.data[j+1] = U*qd
+        ψ.data[j+2] = dag(qd)*S*V
+
+        # new orth center is j+2
+        ψ.llim = j+1
+        ψ.rlim = j+3
+
+    elseif center_to == :c
+        U,S,V = dmt(Gψψψ, sl, sc, αL, dmt_params)
+        α = commonind(U,S)
+        qd,newα = dmc_gauge(U, [sl],α)
+
+        ψ.data[j+0] = U*qd
+
+        U,S,V = dmt(dag(qd)*S*V, sc, sr, [newα], dmt_params)
+        α = commonind(S,V)
+        qd, = dmc_gauge(V, [sr],α)
+
+        ψ.data[j+1] = U*S*dag(qd) 
+        ψ.data[j+2] = qd*V
+
+        # new orth center is j+1
+        ψ.llim = j
+        ψ.rlim = j+2
+
+    else
+        error("apply_dmt3_both!: center_to = $center_to not implemented")
+    end
+    return ψ
+end
 
 function check_dmc(ψ, center :: Integer;quiet=true)
     sites = siteinds(ψ)
@@ -351,12 +467,17 @@ function nn_expectation_values(ψ :: MPS)
     #function assumes DMC with center-site 1
     @cassert check_dmc(ψ,1)
 
+    # this really should be a parameter to the MPS!
+    T = promote_type(eltype.(ψ)...)
+
+
     L = length(ψ)
     sites = siteinds(ψ)
-    zL = zeros(L-1)
-    zR = zeros(L-1)
+    zL = zeros(T,L-1)
+    zR = zeros(T,L-1)
     d = dim(sites[1])
-    expct = zeros(d,d,L-1)
+    
+    expct = zeros(T, d,d,L-1)
 
     # j labels the tensor whose trace we record
     for j = L:-1:2
@@ -401,4 +522,36 @@ end
 function nnev_as_vector(ψ)
     nnev = nn_expectation_values(ψ)
     return [nnev[:,:,j] for j = 1:size(nnev,3)]
+end
+
+function apply_dmt3_rght!(G :: ITensor, #3-site tensor
+                          ψ :: MPS,
+                          j :: Integer, #leftmost site on which $G$ acts
+                          dmt_params :: Dict,
+                          )
+    ψj   = ψ.data[j]
+    ψjp1 = ψ.data[j+1]
+    ψjp2 = ψ.data[j+2]
+
+    sl = (commoninds(ψj,G) |> scalar)
+    sc = (commoninds(ψjp1,G) |> scalar)
+    sr = (commoninds(ψjp2,G) |> scalar)
+
+    if j == 1
+        αL = Index[]
+    else
+        αL = commoninds(ψj, ψ.data[j-1])
+    end
+
+    Gψψψ = noprime(G*(ψj*(ψjp1*ψjp2)))
+    U,S,V = dmt(Gψψψ, sc, sr, αL ∪ [sl], dmt_params)
+    α = commonind(U,S)
+    qd, = dmc_gauge(U, [sc],α)
+    ψ.data[j] = U*qd
+    ψ.data[j+1] = dag(qd)*S*V
+    ψ.data[j+2]   = ITensor(1) #fake
+    # new orth center is j+1
+    ψ.llim = 2
+    ψ.rlim = j+3
+    return ψ
 end
