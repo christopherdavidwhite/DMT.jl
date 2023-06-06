@@ -239,7 +239,7 @@ uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
 
 [[deps.DMT]]
-deps = ["ITensors", "LinearAlgebra"]
+deps = ["ITensors", "LinearAlgebra", "NDTensors"]
 path = "src/DMT"
 uuid = "9c44f795-9d84-4883-8688-ed6ea0be3dc8"
 version = "0.1.0"

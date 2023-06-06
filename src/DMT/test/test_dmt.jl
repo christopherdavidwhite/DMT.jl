@@ -347,6 +347,7 @@ end
 
     
 
+
 @testset "apply_dmt3_left! notrunc" begin
     L = 5
     s = [Index(2) for j = 1:L]
@@ -358,7 +359,7 @@ end
                                   s[j]', s[j+1]', s[j+2]')
 
                 A0 = prod(ψ)*G |> noprime
-                apply_dmt3_left!(G,ψ,j,Dict([:maxdim=>100]))
+                apply_dmt3_left!(G,ψ,j,s[j:j+2],Dict([:maxdim=>100]))
                 A1 = prod(ψ)
                 @test norm( A0 - A1) <= 1e-10
             end
@@ -379,11 +380,33 @@ end
                 nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
                 dmc!(ψ)
                 sweep_dmc!(ψ,1,j)
-                apply_dmt3_left!(G,ψ,j,Dict([:maxdim => 2]))
+                apply_dmt3_left!(G,ψ,j,s[j:j+2],Dict([:maxdim => 2]))
                 #result is not really an MPS. Do the dumb easy thing: roundtrip through just the state tensor.
                 nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
                 @test norm(nnev0 - nnev1) <= 1e-10
             end
+        end
+    end
+end
+
+@testset "apply_dmt_left! indices / center" begin
+
+    sites = [Index(2) for j = 1:3]
+
+    for r = 1:Nr
+        for T = [Float64, Complex{Float64}]
+
+            ψ = randomMPS(T, sites,linkdims=3)
+            G = randomITensor(T, sites..., [s' for s in sites]...)
+            apply_dmt3_left!(G, ψ, 1, sites, Dict(:maxdim => 1))
+
+
+            @test (ψ[1] |> inds |> Set) == (sites[1:1] ∪ commoninds(ψ[1],ψ[2]) |> Set)
+            @test (ψ[2] |> inds |> Set) == (sites[2:3] ∪ commoninds(ψ[1],ψ[2]) |> Set)
+            @test (ψ[3] |> inds |> Set) == Set([])
+
+            @test check_dmc(ψ[1], sites[1:1], commoninds(ψ[1],ψ[2]) |> scalar, quiet=false)
+            @test check_dmc(ψ[2], sites[2:2], commoninds(ψ[1],ψ[2]) |> scalar, quiet=false)
         end
     end
 end
@@ -400,7 +423,7 @@ end
                                   s[j]', s[j+1]', s[j+2]')
 
                 A0 = prod(ψ)*G |> noprime
-                apply_dmt3_rght!(G,ψ,j,Dict([:maxdim => 100]))
+                apply_dmt3_rght!(G,ψ,j,s[j:j+2],Dict([:maxdim => 100]))
                 A1 = prod(ψ)
                 @test norm( A0 - A1) <= 1e-10
             end
@@ -408,98 +431,143 @@ end
     end
 end
 
-  @testset "apply_dmt3_rght! truncate" begin
-      Nr = 10
-      L = 5
-      s = [Index(2) for j = 1:L]
-      for T = [Float64,Complex{Float64}]
-          for r = 1:Nr
-              for j = 1:L-2
-                  ψ = randomMPS(s, 5)
-                  G = randomITensor(T, s[j] , s[j+1] , s[j+2],
-                                    s[j]', s[j+1]', s[j+2]')
 
-                  nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
-                  dmc!(ψ)
-                  sweep_dmc!(ψ,1,j)
-                  apply_dmt3_rght!(G,ψ,j,Dict([:maxdim =>1]))
-                  # result is not really an MPS, because it's collapsed two of the site tensors into one
-                  # these are (j+1,j+2)
-                  # Do the dumb easy thing: roundtrip through just the state tensor.
-                  nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
-                  @test norm(nnev0 - nnev1) <= 1e-10
-              end
-          end
-      end
-  end
+@testset "apply_dmt3_rght! truncate" begin
+    Nr = 10
+    L = 5
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                ψ = randomMPS(s, 5)
+                G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                  s[j]', s[j+1]', s[j+2]')
 
-  @testset "apply_dmt3_both! notrunc" begin
-      Nr = 10
-      L = 8
-      s = [Index(2) for j = 1:L]
-      for T = [Float64,Complex{Float64}]
-          for r = 1:Nr
-              for j = 1:L-2
-                  for center_to = [:l, :r, :c]
-                      ψ = randomMPS(s, 5)
-                      G = randomITensor(T, s[j] , s[j+1] , s[j+2],
-                                        s[j]', s[j+1]', s[j+2]')
+                nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
+                dmc!(ψ)
+                sweep_dmc!(ψ,1,j)
+                apply_dmt3_rght!(G,ψ,j,s[j:j+2],Dict([:maxdim =>1]))
+                # result is not really an MPS, because it's collapsed two of the site tensors into one
+                # these are (j+1,j+2)
+                # Do the dumb easy thing: roundtrip through just the state tensor.
+                nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
+                @test norm(nnev0 - nnev1) <= 1e-10
+            end
+        end
+    end
+end
 
-                      A0 = prod(ψ)*G |> noprime
+@testset "apply_dmt_rght! indices / center" begin
 
-                      dmc!(ψ)
-                      sweep_dmc!(ψ,1,j)
+    sites = [Index(2) for j = 1:3]
 
-                      apply_dmt3_both!(G,ψ,j,Dict(:maxdim => 100),center_to)
-                      A1 = prod(ψ)
-                      @test norm( A0 - A1) <= 1e-10
+    for r = 1:Nr
+        for T = [Float64, Complex{Float64}]
+
+            ψ = randomMPS(T, sites,linkdims=3)
+            G = randomITensor(T, sites..., [s' for s in sites]...)
+            apply_dmt3_rght!(G, ψ, 1, sites, Dict(:maxdim => 1))
 
 
-                      if     center_to == :l
-                          @test check_dmc(ψ, j,quiet=false)
-                      elseif center_to == :c
-                          @test check_dmc(ψ, j+1,quiet=false)
-                      elseif center_to == :r
-                          @test check_dmc(ψ, j+2,quiet=false)
-                      else error()
-                      end
-                  end
-              end
-          end
-      end
-  end
+            @test (ψ[1] |> inds |> Set) == Set([])
+            @test (ψ[2] |> inds |> Set) == (sites[1:2] ∪ commoninds(ψ[2],ψ[3]) |> Set)
+            @test (ψ[3] |> inds |> Set) == (sites[3:3] ∪ commoninds(ψ[2],ψ[3]) |> Set)
+            
+            @test check_dmc(ψ[3], sites[3:3], commoninds(ψ[2],ψ[3]) |> scalar, quiet=false)
+            @test check_dmc(ψ[2], sites[2:2], commoninds(ψ[2],ψ[3]) |> scalar, quiet=false)
+        end
+    end
+end
 
-  @testset "apply_dmt3_both! truncate" begin
-      Nr = 10
-      L = 5
-      s = [Index(2) for j = 1:L]
-      for T = [Float64,Complex{Float64}]
-          for r = 1:Nr
-              for j = 1:L-2
-                  for center_to = [:l, :r, :c]
+@testset "apply_dmt3_both! notrunc" begin
+    Nr = 10
+    L = 8
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                for center_to = [:l, :r, :c]
+                    ψ = randomMPS(s, 5)
+                    G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                      s[j]', s[j+1]', s[j+2]')
 
-                      ψ = randomMPS(s, 5)
-                      G = randomITensor(T, s[j] , s[j+1] , s[j+2],
-                                        s[j]', s[j+1]', s[j+2]')
+                    A0 = prod(ψ)*G |> noprime
 
-                      nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
-                      dmc!(ψ)
-                      sweep_dmc!(ψ,1,j)
-                      apply_dmt3_both!(G,ψ,j,Dict(:maxdim => 1),center_to)
-                      nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
-                      @test norm(nnev0 - nnev1) <= 1e-10
+                    dmc!(ψ)
+                    sweep_dmc!(ψ,1,j)
 
-                      if     center_to == :l
-                          @test check_dmc(ψ, j,quiet=false)
-                      elseif center_to == :c
-                          @test check_dmc(ψ, j+1,quiet=false)
-                      elseif center_to == :r
-                          @test check_dmc(ψ, j+2,quiet=false)
-                      else error()
-                      end
+                    apply_dmt3_both!(G,ψ,j,s[j:j+2],Dict(:maxdim => 100),center_to)
+                    A1 = prod(ψ)
+                    @test norm( A0 - A1) <= 1e-10
 
-                  end
-              end
-          end
-      end
-  end
+
+                    if     center_to == :l
+                        @test check_dmc(ψ, j,quiet=false)
+                    elseif center_to == :c
+                        @test check_dmc(ψ, j+1,quiet=false)
+                    elseif center_to == :r
+                        @test check_dmc(ψ, j+2,quiet=false)
+                    else error()
+                    end
+                end
+            end
+        end
+    end
+end
+
+@testset "apply_dmt3_both! truncate" begin
+    Nr = 10
+    L = 5
+    s = [Index(2) for j = 1:L]
+    for T = [Float64,Complex{Float64}]
+        for r = 1:Nr
+            for j = 1:L-2
+                for center_to = [:l, :r, :c]
+
+                    ψ = randomMPS(s, 5)
+                    G = randomITensor(T, s[j] , s[j+1] , s[j+2],
+                                      s[j]', s[j+1]', s[j+2]')
+
+                    nnev0 = MPS(prod(ψ)*G |> noprime, s) |> dmc! |> nn_expectation_values
+                    dmc!(ψ)
+                    sweep_dmc!(ψ,1,j)
+                    apply_dmt3_both!(G,ψ,j,s[j:j+2],Dict(:maxdim => 1),center_to)
+                    nnev1 = MPS(prod(ψ),s) |> dmc! |> nn_expectation_values
+                    @test norm(nnev0 - nnev1) <= 1e-10
+
+                    if     center_to == :l
+                        @test check_dmc(ψ, j,quiet=false)
+                    elseif center_to == :c
+                        @test check_dmc(ψ, j+1,quiet=false)
+                    elseif center_to == :r
+                        @test check_dmc(ψ, j+2,quiet=false)
+                    else error()
+                    end
+
+                end
+            end
+        end
+    end
+end
+
+@testset "apply_dmt_both! indices / center" begin
+    
+    sites = [Index(2) for j = 1:3]
+
+    for r = 1:Nr
+        for T = [Float64, Complex{Float64}]
+            for center_to = [:l,:c,:r]
+                ψ = randomMPS(T, sites,linkdims=3)
+                G = randomITensor(T, sites..., [s' for s in sites]...)
+                apply_dmt3_both!(G, ψ, 1, sites, Dict(:maxdim => 1), center_to)
+                @test (ψ[1] |> inds |> Set) == (sites[1:1] ∪ commoninds(ψ[1],ψ[2]) |> Set)
+                @test (ψ[2] |> inds |> Set) == (sites[2:2] ∪ commoninds(ψ[1],ψ[2]) ∪ commoninds(ψ[2],ψ[3]) |> Set)
+                @test (ψ[3] |> inds |> Set) == (sites[3:3] ∪ commoninds(ψ[2],ψ[3]) |> Set)
+                if     center_to == :l @test check_dmc(ψ, 1)
+                elseif center_to == :c @test check_dmc(ψ, 2)
+                elseif center_to == :r @test check_dmc(ψ, 3)
+                end
+            end
+        end
+    end
+end
