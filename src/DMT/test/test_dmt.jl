@@ -345,8 +345,28 @@ end
 				        hz 0  0 1]
 end
 
+@testset "measure_threesite_ops" begin
+    L = 7
     
-
+    for T = [Float64, Complex{Float64}]
+        for r = 1:Nr
+            sites = [Index(3) for j = 1:L]
+            ops = [randomITensor(sites[j:j+2]...) for j = 1:L-2]
+            embedded_ops = [ prod([ITensor(1)] ∪ [onehot(sites[k] => 1) for k = 1:j-1]) * ops[j] * prod([ITensor(1)] ∪ [onehot(sites[k] => 1) for k = j+3:L]) for j = 1:L-2]
+            
+            @cassert all([o |> inds |> length == L for o in embedded_ops])
+            
+            ψ = randomMPS(sites, 10)
+            orthogonalize!(ψ,1)
+            dmc!(ψ)
+            ψt = prod(ψ)
+            
+            tensor_expct = [o*ψt |> ITensors.scalar for o in embedded_ops]
+            mto_expct = measure_threesite_ops(ψ,ops)
+            @test mto_expct ≈ tensor_expct
+        end
+    end
+end
 
 @testset "apply_dmt3_left! notrunc" begin
     L = 5
@@ -393,10 +413,17 @@ end
 
     sites = [Index(2) for j = 1:3]
 
+    # small
     for r = 1:Nr
         for T = [Float64, Complex{Float64}]
 
             ψ = randomMPS(T, sites,linkdims=3)
+            
+            orthogonalize!(ψ,1)
+            dmc!(ψ)
+            @assert check_dmc(ψ,1)
+            @assert ortho_lims(ψ) == 1:1
+            
             G = randomITensor(T, sites..., [s' for s in sites]...)
             apply_dmt3_left!(G, ψ, 1, sites, Dict(:maxdim => 1))
 
@@ -492,7 +519,7 @@ end
                                       s[j]', s[j+1]', s[j+2]')
 
                     A0 = prod(ψ)*G |> noprime
-
+                    
                     dmc!(ψ)
                     sweep_dmc!(ψ,1,j)
 

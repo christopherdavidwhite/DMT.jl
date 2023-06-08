@@ -209,6 +209,8 @@ function apply_dmt!(G :: ITensor,
     return ψ
 end
 
+# apply a gate to a 3-site region, and truncate (only) the left bond,
+# moving the orthogonality / dmc center to the right bond
 function apply_dmt3_left!(G :: ITensor, #3-site tensor
                           ψ :: MPS,
                           j :: Integer, #leftmost site on which $G$ acts
@@ -236,21 +238,20 @@ function apply_dmt3_left!(G :: ITensor, #3-site tensor
     Gψψψ = noprime(G*(ψj*(ψjp1*ψjp2)))
 
     U,S,V = dmt(Gψψψ, sl, sc, αL, dmt_params)
-    US = U*S
-    α = commonind(S,V)
-    qd, = dmc_gauge(US, [sl],α)
+    α = commonind(U,S)
+    qd, = dmc_gauge(U, [sl],α)
 
-    ψ[j]   = US*dag(qd)
-    ψ[j+1] = qd*V
+    ψ[j]   = U*qd
+    ψ[j+1] = dag(qd)*S*V
     ψ[j+2] = ITensor(1) #fake
 
     # sometimes convenient to pass in matrices not DMC to start out with
     
-    #@cassert check_dmc(ψ[j], [sl], commoninds(ψ[j],ψ[j+1]) |> scalar,quiet=false)
+    # @cassert check_dmc(ψ[j], [sl], commoninds(ψ[j],ψ[j+1]) |> scalar,quiet=false)
 
-    # new orth center is j
-    ψ.llim = j-1
-    ψ.rlim = j+1
+    # new orth center is j+1
+    ψ.llim = j
+    ψ.rlim = j+2
 
     return ψ
 end
@@ -284,12 +285,11 @@ function apply_dmt3_rght!(G :: ITensor, #3-site tensor
 
     Gψψψ = noprime(G*(ψj*(ψjp1*ψjp2)))
     U,S,V = dmt(Gψψψ, sc, sr, αL ∪ [sl], dmt_params)
-    SV = S*V
-    α = commonind(U,S)
-    qd, = dmc_gauge(SV, [sr],α)
+    α = commonind(S,V)
+    qd, = dmc_gauge(V, [sr],α)
     ψ.data[j+0]   = ITensor(1) #fake
-    ψ.data[j+1] = U*dag(qd)
-    ψ.data[j+2] = qd*SV
+    ψ.data[j+1] = U*S*qd
+    ψ.data[j+2] = dag(qd)*V
     # new orth center is j+1
     ψ.llim = j+2
     ψ.rlim = j+3
@@ -336,8 +336,8 @@ function apply_dmt3_both!(G :: ITensor, #3-site tensor
         α = commonind(S,V)
         qd, = dmc_gauge(V, [sc],α)
 
-        ψ.data[j+1] = qd*V
         ψ.data[j+0] = U*S*dag(qd)
+        ψ.data[j+1] = qd*V
 
         # new orth center is j
         ψ.llim = j-1
@@ -579,8 +579,6 @@ function nnev_as_vector(ψ)
     return [nnev[:,:,j] for j = 1:size(nnev,3)]
 end
 
-
-
 function measure_threesite_ops(ψ :: MPS, A :: Vector{<:ITensor})
 
     #function assumes DMC with center-site 1
@@ -627,6 +625,11 @@ function measure_threesite_ops(ψ :: MPS, A :: Vector{<:ITensor})
             expct[k] *= prod(zL[1:k-1])
         end
 
+        #should this not be zR[k+3:end]?
+        # e.g.
+        #   k = 1
+        #   k+2 = 3
+        # but we get zR[k+2] in expct
         if k <= L-3
             expct[k] *= prod(zR[k+2:end]) # sites k+1:L correspond to indices k:L-1 = k:end
         end
