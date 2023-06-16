@@ -7,6 +7,8 @@ using Dates
 using DataFrames
 using ProgressMeter
 using DMT
+using Serialization
+using Base.Filesystem
 #using Profile
 
 DMT.CHECK = false
@@ -162,19 +164,17 @@ function run_te(params)
 
     @cassert params[:L] % 2 == 1 #want odd
     
-    @show params[:L]
-
     dmt_params = params[:dmt_params]
     delete!(params, :dmt_params)
 
     dt = params[:dt]
     L = params[:L]
-    @show L
 
     svnm = (params ∪ dmt_params) |> Dict |> savename
     fn = datadir("$jobname/$subdate/$commit/$svnm/")
     fn |> dirname |> mkpath
     @show fn
+    state_fn = fn * "state.ser"
     jc = Int((L - 1)/2) #center
 
     B,C,sharpind,energy_density_ops = majorana_energy_density_tensors(params[:L],params[:U])
@@ -217,8 +217,18 @@ function run_te(params)
             if abs(ε[end]) > thresh*abs(E0) || abs(ε[1]) > thresh*abs(E0)
                 break;
             end
+
+            if t % 10 == 1.0
+                f = open(state_fn,"w")
+                serialize(f, @dict gates params dmt_params ψ)
+                close(f)
+            end
         end
     end
+
+    # if made it to the end without being killed, remove the checkpoint file
+    println("removing checkpoint file")
+    f = rm(state_fn, force=true)
 end
 
 s = ArgParseSettings()
@@ -244,9 +254,7 @@ s = ArgParseSettings()
 end
     
 parsed_args = parse_args(ARGS, s, as_symbols=true)
-@show parsed_args
 Ls     = [9,parsed_args[:L]]
-@show Ls
 maxdim = parsed_args[:maxdim]
 dt     = parsed_args[:dt]
 U      = parsed_args[:U]
@@ -265,7 +273,6 @@ init = :ε
 
 
 for L in Ls
-    @show L
     dmt_params = @dict maxdim
     params = @dict dmt_params trotter jobname subdate T U commit init L dt
     run_te(params)
