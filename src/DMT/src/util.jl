@@ -1,4 +1,4 @@
-global CHECK=true
+global CHECK=false
 
 import ITensors.scalar
 export @cassert, @showinds, ⊗,scalar, arr1d, combine_by_prime,unzip

@@ -11,7 +11,6 @@ using Serialization
 using Base.Filesystem
 #using Profile
 
-DMT.CHECK = false
 @cassert false
 
 function getχ(ψ :: MPS)
@@ -171,7 +170,7 @@ function run_te(params)
     L = params[:L]
 
     svnm = (params ∪ dmt_params) |> Dict |> savename
-    fn = datadir("$jobname/$subdate/$commit/$svnm/")
+    fn = "/home/cdwhite/scratch/$jobname/$subdate/$commit/$svnm/"
     fn |> dirname |> mkpath
     @show fn
     state_fn = fn * "state.ser"
@@ -266,7 +265,7 @@ jobname = "T108"
 
 
 using LibGit2
-repo = GitRepo("/home/christopher/work/2014-12-TEBD/")
+repo = GitRepo("/home/cdwhite/2014-12-TEBD/")
 commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
 
 init = :ε
