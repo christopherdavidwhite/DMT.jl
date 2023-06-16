@@ -218,7 +218,7 @@ function run_te(params)
     end
 end
 
-lgLmax = 12
+lgLmax = 10
 lgmaxdimmax = 9
 
 Ls = ( 2 .^ (3:lgLmax) ) .+ 1
