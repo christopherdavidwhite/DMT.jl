@@ -42,7 +42,7 @@ function majorana_energy_density_tensors(L, U)
 	s2 = s[j + 1]
         s3 = s[j + 2]
 	hj =
-	    U * 1/2 * op("X", s1) * op("I", s2) * op("X", s3) +
+	    U * op("X", s1) * op("I", s2) * op("X", s3) +
             
 	    1/2 * op("X", s1) * op("X", s2) * op("I", s3) +
 	    1/2 * op("I", s1) * op("X", s2) * op("X", s3) +
