@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH -p debug
+#SBATCH -n 1
+#SBATCH -c 2
+#SBATCH -t 10:00
+
+source ~/.bashrc
+module j
+OPENBLAS_NUM_THREADS=2 julia ~/2014-12-TEBD/scripts/TEBD108_majorana-model-cluster.jl
