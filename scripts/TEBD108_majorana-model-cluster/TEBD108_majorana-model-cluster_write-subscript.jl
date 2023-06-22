@@ -6,7 +6,7 @@ L = 1025
 mkpath("$subdate")
 
 for dt = [0.0625, 0.125,0.25, 0.5]
-    for maxdim = [16,32,64,128,512]
+    for maxdim = 2 .^ (4:10)
         memory = max(2048, (( maxdim^2*4*L ) * 8 * 1.1 / 2^20) |> ceil |> Int )
         job_script_fn = "$subdate/$dt-$maxdim.sub"
         job_script_string = "#!/bin/bash

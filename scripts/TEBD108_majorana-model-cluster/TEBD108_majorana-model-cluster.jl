@@ -198,31 +198,31 @@ function run_te(params)
     @showprogress for t = dt:dt:T
         step_ctime = (@timed apply_trotterstep_itensorexample!(gates,dmt_params,ψ)).time
         χ = getχ(ψ)
+	Base.GC.gc()
         
-        if t % 1 == 0
-            ε = measure_threesite_ops(ψ, energy_density_vecs)
-            tdf = ( params ∪
-                    dmt_params ∪
-                    [:t  => t,
-                     :step_ctime => step_ctime,
-                     :j  => 1:(params[:L]-2),
-                     :χ  => χ[1:L-2],
-                     :norm => norm(ψ),
-                     :ε => ε,
-                     ] ) |> DataFrame
-            if L > 8 Arrow.write(fn*savename(@dict t)*".arrow",tdf) end
+        ε = measure_threesite_ops(ψ, energy_density_vecs)
+        tdf = ( params ∪
+                dmt_params ∪
+                [:t  => t,
+                 :step_ctime => step_ctime,
+                 :j  => 1:(params[:L]-2),
+                 :χ  => χ[1:L-2],
+                 :norm => norm(ψ),
+                 :ε => ε,
+                 ] ) |> DataFrame
+        if L > 9 Arrow.write(fn*savename(@dict t)*".arrow",tdf) end
 
-            thresh = 1e-2/L^2
-            if abs(ε[end]) > thresh*abs(E0) || abs(ε[1]) > thresh*abs(E0)
-                break;
-            end
-
-            if t % 10 == 1.0
-                f = open(state_fn,"w")
-                serialize(f, @dict gates params dmt_params ψ)
-                close(f)
-            end
+        thresh = 1e-2/L^2
+        if abs(ε[end]) > thresh*abs(E0) || abs(ε[1]) > thresh*abs(E0)
+            break;
         end
+
+        if t % 10 == 1.0
+            f = open(state_fn,"w")
+            serialize(f, @dict gates params dmt_params ψ)
+            close(f)
+        end
+	Base.GC.gc()
     end
 
     # if made it to the end without being killed, remove the checkpoint file
