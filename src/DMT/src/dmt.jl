@@ -3,6 +3,7 @@ export dmc_gauge
 export check_dmc
 export otrace
 export dmt
+export linkdim1_p, prop_identity_p
 export apply_dmt!, apply_dmt3_left!, apply_dmt3_rght!, apply_dmt3_both!
 export bchg_tensor
 export double
@@ -137,6 +138,20 @@ function dmt(A    :: ITensor,
 end
 
 
+function linkdim1_p(A :: ITensor, # tensor to check
+                    s :: Index   # "site index" (not suppose
+                    )
+    out = true
+    for j in inds(A)
+        if j != s
+            out = out && dim(j) == 1
+        end
+    end
+    return out
+end
+
+prop_identity_p(A :: ITensor, s :: Index, ) = linkdim1_p(A,s) && (( (A |> array |> arr1d)[2:end] |> norm) < 1e-13)
+
 function double(A :: ITensor, C :: Vector{ITensor})
     #@assert inds(A) ⊆ union([c |> inds |> collect for c in C]...)
     A = mapprime(A,1,2)
@@ -225,6 +240,13 @@ function apply_dmt3_left!(G :: ITensor, #3-site tensor
     sl = sites[1]
     sc = sites[2]
     sr = sites[3]
+
+    if (get(dmt_params,:skip_identity , false)
+        && prop_identity_p(ψj, sl)
+        && prop_identity_p(ψjp1, sc)
+        && prop_identity_p(ψjp2, sr) )
+        return ψ
+    end
     
     @cassert sites ⊆ inds(G)
     @cassert sites ⊆ reduce(∪, inds.(ψ[j:j+2]))
@@ -276,6 +298,13 @@ function apply_dmt3_rght!(G :: ITensor, #3-site tensor
     @cassert sites ⊆ inds(G)
     @cassert sites ⊆ reduce(∪, inds.(ψ[j:j+2]))
 
+    if (get(dmt_params,:skip_identity , false)
+        && prop_identity_p(ψj, sl)
+        && prop_identity_p(ψjp1, sc)
+        && prop_identity_p(ψjp2, sr) )
+        return ψ
+    end
+
 
     if j == 1
         αL = Index[]
@@ -316,6 +345,13 @@ function apply_dmt3_both!(G :: ITensor, #3-site tensor
 
     @cassert sites ⊆ inds(G)
     @cassert sites ⊆ reduce(∪, inds.(ψ[j:j+2]))
+    
+    if (get(dmt_params,:skip_identity , false)
+        && prop_identity_p(ψj, sl)
+        && prop_identity_p(ψjp1, sc)
+        && prop_identity_p(ψjp2, sr) )
+        return ψ
+    end
 
     if j == 1
         αL = Index[]

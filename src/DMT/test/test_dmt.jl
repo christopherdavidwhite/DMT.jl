@@ -112,6 +112,49 @@ end
     end
 end
 
+@testset "checking identity MPO tensors" begin
+    for r = 1:Nr
+        s = Index(2)
+
+        @test linkdim1_p(randomITensor(s,Index(1), Index(1)), s)
+        @test linkdim1_p(randomITensor(Index(1), s, Index(1)), s)
+        @test linkdim1_p(randomITensor(Index(1), Index(1), s), s)
+        @test linkdim1_p(randomITensor(s,[Index(1) for j = 1:3]...), s)
+
+        @test !linkdim1_p(randomITensor(s,Index(3), Index(3)), s)
+        @test !linkdim1_p(randomITensor(Index(3), s, Index(3)), s)
+        @test !linkdim1_p(randomITensor(Index(3), Index(3), s), s)
+        @test !linkdim1_p(randomITensor(s,[Index(3) for j = 1:3]...), s)
+
+        @test !prop_identity_p(randomITensor(s,Index(3), Index(3)), s)
+        @test !prop_identity_p(randomITensor(Index(3), s, Index(3)), s)
+        @test !prop_identity_p(randomITensor(Index(3), Index(3), s), s)
+        @test !prop_identity_p(randomITensor(s,[Index(3) for j = 1:3]...), s)
+
+        # these tests actually fail with some probability ~ 1e-13 the cutoff, even if the code is right
+        # that is not great?
+
+        α = Index(1)
+        β = Index(1)
+
+        @test !prop_identity_p(randomITensor(s,α,β),s)
+        @test !prop_identity_p(randomITensor(α,s,β),s)
+        @test !prop_identity_p(randomITensor(α,β,s),s)
+        @test !prop_identity_p(randomITensor(s,[Index(1) for j = 1:3]...), s)
+
+        @test prop_identity_p(ITensor([1 0], s,α,β),s)
+        @test prop_identity_p(ITensor([1 0], α,s,β),s)
+        @test prop_identity_p(ITensor([1 0], α,β,s),s)
+        @test prop_identity_p(ITensor([1 0], s,[Index(1) for j = 1:3]...), s)
+
+        @test prop_identity_p(ITensor([rand(), 0], s,α,β),s)
+        @test prop_identity_p(ITensor([rand(), 0], α,s,β),s)
+        @test prop_identity_p(ITensor([rand(), 0], α,β,s),s)
+        @test prop_identity_p(ITensor([rand(), 0], s,[Index(1) for j = rand():3]...), s)
+    end
+end
+
+
 @testset "change to hermitian basis" begin
     j = Index(2)
     c = combiner(j,j')
