@@ -6,8 +6,8 @@ L = 1025
 mkpath("$subdate")
 
 for dt = [0.0625, 0.125,0.25, 0.5]
-    for maxdim = 2 .^ (4:10)
-        memory = max(2048, (( maxdim^2*4*L ) * 8 * 1.1 / 2^20) |> ceil |> Int )
+    for maxdim = ( 2 .^ (4:0.5:9) .|> floor .|> Int )
+        memory = 3000 + ((( maxdim^2*4*L ) * 8 * 1.5 / 2^20) |> ceil |> Int )
         job_script_fn = "$subdate/$dt-$maxdim.sub"
         job_script_string = "#!/bin/bash
 #SBATCH -p standard
