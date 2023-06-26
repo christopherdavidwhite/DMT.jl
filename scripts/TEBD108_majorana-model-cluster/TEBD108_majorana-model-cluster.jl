@@ -170,7 +170,8 @@ function run_te(params, state = nothing)
         gates      = state[:gates]
         energy_density_vecs = state[:energy_density_vecs]
         ψ          = state[:ψ]
-        tinit      = state[:t]
+        tinit      = state[:t] + params[:dt]
+
 
         ts = tinit:params[:dt]:params[:T]
     else
@@ -178,22 +179,25 @@ function run_te(params, state = nothing)
         dmt_params = params[:dmt_params]
         delete!(params, :dmt_params)
 
-        dt = params[:dt]
-        L = params[:L]
-        
-        jc = Int((L - 1)/2) #center
+        jc = Int((params[:L] - 1)/2) #center
         B,C,sharpind,energy_density_ops = majorana_energy_density_tensors(params[:L],params[:U])
-        energy_density_vecs = [real(energy_density_ops[j]*C[j]*C[j+1]*C[j+2]*B[j]*B[j+1]*B[j+2]) for j = 1:L-2]
+        energy_density_vecs = [real(energy_density_ops[j]*C[j]*C[j+1]*C[j+2]*B[j]*B[j+1]*B[j+2]) for j = 1:params[:L]-2]
         ψ = energydensity_mpo(sharpind, B, C, energy_density_ops)
         @cassert all([inds(v) ⊆ siteinds(ψ) for v in energy_density_vecs])
 
         gates = trottergates_itensor_example(B,C,energy_density_ops,params[:dt])
         
-    ts = dt:dt:T
+        ts = params[:dt]:params[:dt]:T
     end
 
+    jobname = params[:jobname]
+    commit = params[:commit]
+    subdate = params[:subdate]
+    dt = params[:dt]
+    L = params[:L]
+    
     svnm = (params ∪ dmt_params) |> Dict |> savename
-    fn = "/home/cdwhite/scratch/$jobname/$subdate/$commit/$svnm/"
+    fn = datadir("$jobname/$subdate/$commit/$svnm/")
     fn |> dirname |> mkpath
     @show fn
     state_fn = fn * "state.ser"
@@ -208,7 +212,7 @@ function run_te(params, state = nothing)
            :ε => measure_threesite_ops(ψ, energy_density_vecs)
            ]) |> DataFrame
     
-    if L > 8 Arrow.write(fn*"t=0.0.arrow",df) end
+    if (L > 9 && nothing == state) Arrow.write(fn*"t=0.0.arrow",df) end
 
 
     ε0 = measure_threesite_ops(ψ, energy_density_vecs)
@@ -302,5 +306,5 @@ if (nothing == parsed_args[:resume])
     end
 else
     state = deserialize(parsed_args[:resume])
-    run_te(Dict(), states)
+    run_te(Dict(), state)
 end
