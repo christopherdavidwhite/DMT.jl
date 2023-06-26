@@ -265,7 +265,7 @@ jobname = "T108"
 
 
 using LibGit2
-repo = GitRepo("/home/cdwhite/2014-12-TEBD/")
+repo = GitRepo(projectdir())
 commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
 
 init = :ε
