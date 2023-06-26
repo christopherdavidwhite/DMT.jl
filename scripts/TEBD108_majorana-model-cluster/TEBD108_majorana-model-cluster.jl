@@ -149,7 +149,7 @@ function apply_trotterstep_itensorexample!(gates, dmt_params, ψ)
 end
 
 
-function run_te(params)
+function run_te(params, state = nothing)
 
     req_sim_params = [:init, :dt, :dmt_params,:L]
     req_mod_params = [:U]
@@ -162,26 +162,42 @@ function run_te(params)
     @cassert params[:init] == :ε
 
     @cassert params[:L] % 2 == 1 #want odd
-    
-    dmt_params = params[:dmt_params]
-    delete!(params, :dmt_params)
 
-    dt = params[:dt]
-    L = params[:L]
+    if state != nothing
+        println("resuming")
+        dmt_params = state[:dmt_params]
+        params     = state[:params]
+        gates      = state[:gates]
+        energy_density_vecs = state[:energy_density_vecs]
+        ψ          = state[:ψ]
+        tinit      = state[:t]
+
+        ts = tinit:params[:dt]:params[:T]
+    else
+        
+        dmt_params = params[:dmt_params]
+        delete!(params, :dmt_params)
+
+        dt = params[:dt]
+        L = params[:L]
+        
+        jc = Int((L - 1)/2) #center
+        B,C,sharpind,energy_density_ops = majorana_energy_density_tensors(params[:L],params[:U])
+        energy_density_vecs = [real(energy_density_ops[j]*C[j]*C[j+1]*C[j+2]*B[j]*B[j+1]*B[j+2]) for j = 1:L-2]
+        ψ = energydensity_mpo(sharpind, B, C, energy_density_ops)
+        @cassert all([inds(v) ⊆ siteinds(ψ) for v in energy_density_vecs])
+
+        gates = trottergates_itensor_example(B,C,energy_density_ops,params[:dt])
+        
+    ts = dt:dt:T
+    end
 
     svnm = (params ∪ dmt_params) |> Dict |> savename
     fn = "/home/cdwhite/scratch/$jobname/$subdate/$commit/$svnm/"
     fn |> dirname |> mkpath
     @show fn
     state_fn = fn * "state.ser"
-    jc = Int((L - 1)/2) #center
 
-    B,C,sharpind,energy_density_ops = majorana_energy_density_tensors(params[:L],params[:U])
-    energy_density_vecs = [real(energy_density_ops[j]*C[j]*C[j+1]*C[j+2]*B[j]*B[j+1]*B[j+2]) for j = 1:L-2]
-    ψ = energydensity_mpo(sharpind, B, C, energy_density_ops)
-    @cassert all([inds(v) ⊆ siteinds(ψ) for v in energy_density_vecs])
-
-    gates = trottergates_itensor_example(B,C,energy_density_ops,params[:dt])
     df = (params ∪
           dmt_params ∪
           [:t  => 0.0,
@@ -191,11 +207,13 @@ function run_te(params)
            :norm => norm(ψ),
            :ε => measure_threesite_ops(ψ, energy_density_vecs)
            ]) |> DataFrame
+    
     if L > 8 Arrow.write(fn*"t=0.0.arrow",df) end
+
 
     ε0 = measure_threesite_ops(ψ, energy_density_vecs)
     E0 = sum(ε0)
-    @showprogress for t = dt:dt:T
+    @showprogress for t = ts
         step_ctime = (@timed apply_trotterstep_itensorexample!(gates,dmt_params,ψ)).time
         χ = getχ(ψ)
 	Base.GC.gc()
@@ -219,7 +237,7 @@ function run_te(params)
 
         if t % 10 == 1.0
             f = open(state_fn,"w")
-            serialize(f, @dict gates params dmt_params ψ)
+            serialize(f, @dict params dmt_params gates energy_density_vecs ψ t)
             close(f)
         end
 	Base.GC.gc()
@@ -250,29 +268,39 @@ s = ArgParseSettings()
     "--dt"
       arg_type = Float64
       default = 0.125
+    "--resume"
+      arg_type = String
+      default = nothing 
 end
-    
+
+
 parsed_args = parse_args(ARGS, s, as_symbols=true)
-Ls     = [9,parsed_args[:L]]
-maxdim = parsed_args[:maxdim]
-dt     = parsed_args[:dt]
-U      = parsed_args[:U]
-T      = parsed_args[:T]
-subdate = parsed_args[:subdate]
+@show parsed_args
+if (nothing == parsed_args[:resume])
+    Ls     = [9,parsed_args[:L]]
+    maxdim = parsed_args[:maxdim]
+    dt     = parsed_args[:dt]
+    U      = parsed_args[:U]
+    T      = parsed_args[:T]
+    subdate = parsed_args[:subdate]
 
-trotter = :bous
-jobname = "T108"
-
-
-using LibGit2
-repo = GitRepo(projectdir())
-commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
-
-init = :ε
+    trotter = :bous
+    jobname = "T108"
 
 
-for L in Ls
-    dmt_params = @dict maxdim
-    params = @dict dmt_params trotter jobname subdate T U commit init L dt
-    run_te(params)
+    using LibGit2
+    repo = GitRepo(projectdir())
+    commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
+    
+    init = :ε
+    
+    
+    for L in Ls
+        dmt_params = @dict maxdim
+        params = @dict dmt_params trotter jobname subdate T U commit init L dt
+        run_te(params)
+    end
+else
+    state = deserialize(parsed_args[:resume])
+    run_te(Dict(), states)
 end
