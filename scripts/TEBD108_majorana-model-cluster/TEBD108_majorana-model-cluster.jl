@@ -11,7 +11,6 @@ using Serialization
 using Base.Filesystem
 #using Profile
 
-DMT.CHECK = false
 @cassert false
 
 function getχ(ψ :: MPS)
@@ -171,7 +170,7 @@ function run_te(params)
     L = params[:L]
 
     svnm = (params ∪ dmt_params) |> Dict |> savename
-    fn = datadir("$jobname/$subdate/$commit/$svnm/")
+    fn = "/home/cdwhite/scratch/$jobname/$subdate/$commit/$svnm/"
     fn |> dirname |> mkpath
     @show fn
     state_fn = fn * "state.ser"
@@ -199,31 +198,31 @@ function run_te(params)
     @showprogress for t = dt:dt:T
         step_ctime = (@timed apply_trotterstep_itensorexample!(gates,dmt_params,ψ)).time
         χ = getχ(ψ)
+	Base.GC.gc()
         
-        if t % 1 == 0
-            ε = measure_threesite_ops(ψ, energy_density_vecs)
-            tdf = ( params ∪
-                    dmt_params ∪
-                    [:t  => t,
-                     :step_ctime => step_ctime,
-                     :j  => 1:(params[:L]-2),
-                     :χ  => χ[1:L-2],
-                     :norm => norm(ψ),
-                     :ε => ε,
-                     ] ) |> DataFrame
-            if L > 8 Arrow.write(fn*savename(@dict t)*".arrow",tdf) end
+        ε = measure_threesite_ops(ψ, energy_density_vecs)
+        tdf = ( params ∪
+                dmt_params ∪
+                [:t  => t,
+                 :step_ctime => step_ctime,
+                 :j  => 1:(params[:L]-2),
+                 :χ  => χ[1:L-2],
+                 :norm => norm(ψ),
+                 :ε => ε,
+                 ] ) |> DataFrame
+        if L > 9 Arrow.write(fn*savename(@dict t)*".arrow",tdf) end
 
-            thresh = 1e-2/L^2
-            if abs(ε[end]) > thresh*abs(E0) || abs(ε[1]) > thresh*abs(E0)
-                break;
-            end
-
-            if t % 10 == 1.0
-                f = open(state_fn,"w")
-                serialize(f, @dict gates params dmt_params ψ)
-                close(f)
-            end
+        thresh = 1e-2/L^2
+        if abs(ε[end]) > thresh*abs(E0) || abs(ε[1]) > thresh*abs(E0)
+            break;
         end
+
+        if t % 10 == 1.0
+            f = open(state_fn,"w")
+            serialize(f, @dict gates params dmt_params ψ)
+            close(f)
+        end
+	Base.GC.gc()
     end
 
     # if made it to the end without being killed, remove the checkpoint file
@@ -266,7 +265,7 @@ jobname = "T108"
 
 
 using LibGit2
-repo = GitRepo("/home/christopher/work/2014-12-TEBD/")
+repo = GitRepo("/home/cdwhite/2014-12-TEBD/")
 commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
 
 init = :ε

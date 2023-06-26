@@ -11,7 +11,7 @@ using Serialization
 using Base.Filesystem
 #using Profile
 
-DMT.CHECK = false
+#DMT.CHECK = false
 @cassert false
 
 function getχ(ψ :: MPS)
@@ -171,7 +171,7 @@ function run_te(params)
     L = params[:L]
 
     svnm = (params ∪ dmt_params) |> Dict |> savename
-    fn = datadir("$jobname/$subdate/$commit/$svnm/")
+    fn = "/home/cdwhite/scratch/$jobname/$subdate/$commit/$svnm/"
     fn |> dirname |> mkpath
     @show fn
     state_fn = fn * "state.ser"
