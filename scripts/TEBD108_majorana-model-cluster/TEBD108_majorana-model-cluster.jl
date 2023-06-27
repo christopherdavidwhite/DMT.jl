@@ -274,7 +274,7 @@ s = ArgParseSettings()
       default = 0.125
     "--resume"
       arg_type = String
-      default = nothing 
+    default = nothing
 end
 
 
@@ -290,6 +290,7 @@ if (nothing == parsed_args[:resume])
 
     trotter = :bous
     jobname = "T108"
+    skip_identity = true
 
 
     using LibGit2
@@ -300,7 +301,7 @@ if (nothing == parsed_args[:resume])
     
     
     for L in Ls
-        dmt_params = @dict maxdim
+        dmt_params = @dict maxdim skip_identity
         params = @dict dmt_params trotter jobname subdate T U commit init L dt
         run_te(params)
     end
