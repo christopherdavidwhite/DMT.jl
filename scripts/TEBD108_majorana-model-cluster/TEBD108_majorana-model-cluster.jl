@@ -127,6 +127,8 @@ function apply_trotterstep_itensorexample!(gates, dmt_params, ψ)
     orthogonalize!(ψ,1)
     @cassert check_dmc(ψ,1,quiet=false)
 
+    gc_freq = get(dmt_params, :gc_freq, 10)
+
     # want to truncate on the *trailing* bond
     # that is:
     #  - when going rightward, want to truncate on left bond
@@ -137,11 +139,13 @@ function apply_trotterstep_itensorexample!(gates, dmt_params, ψ)
         @cassert check_dmc(ψ,j-1,j+2)
         apply_dmt3_left!(gates[j], ψ, j, sites[j:j+2], dmt_params)
         @cassert check_dmc(ψ,j,j+3)
+        if (nothing != gc_freq && 0 == j % gc_freq) Base.GC.gc(); end
     end
     for j = L-2:-1:2
         @cassert check_dmc(ψ,j+1,j+4)
         apply_dmt3_rght!(gates[j], ψ, j, sites[j:j+2], dmt_params )
         @cassert check_dmc(ψ,j,j+3)
+        if (nothing != gc_freq && 0 == j % gc_freq) Base.GC.gc() end
     end
 
     apply_dmt3_both!(gates[1], ψ,1, sites[1:3], dmt_params, :l)
