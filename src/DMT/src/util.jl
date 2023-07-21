@@ -2,6 +2,7 @@ global CHECK=false
 
 import ITensors.scalar
 export @cassert, @showinds, ⊗,scalar, arr1d, combine_by_prime,unzip
+export embed_itensor_doubled
 # conditional assert: if global flag CHECK is set, do the assert thing.
 # Copy / pasted from julia 1.6.1.
 
@@ -90,3 +91,12 @@ function combine_by_id(H :: ITensor)
 end
 
 unzip(A :: Array{Tuple{T,S}} where {T,S}) = ([a[1] for a in A], [a[2] for a in A])
+
+function embed_itensor_doubled(A :: ITensor, ss :: Vector{<:Index})
+    new_ss = setdiff(ss, inds(A))
+    for s in new_ss
+        A *= onehot(s => 1)
+    end
+    return A
+end
+ 

@@ -11,7 +11,7 @@ export dmc!
 export sweep_dmc!
 export onsite_expectation_values
 export nn_expectation_values
-export nnev_as_vector,measure_threesite_ops
+export nnev_as_vector,measure_threesite_ops, measure_nsite_ops
 
 function thick_qr_qdag(A :: ITensor, Linds :: Vector{<:Index})
     Rinds = setdiff(inds(A) , Linds)
@@ -620,6 +620,8 @@ function measure_threesite_ops(ψ :: MPS, A :: Vector{<:ITensor})
     #function assumes DMC with center-site 1
     @cassert check_dmc(ψ,1)
     @cassert length(A) == length(ψ)-2
+    @cassert ( A .|> inds .|> length .== 3) |> all
+
 
     # this really should be a parameter to the MPS!
     T = promote_type(eltype.(ψ)..., eltype.(A)...)
@@ -668,6 +670,80 @@ function measure_threesite_ops(ψ :: MPS, A :: Vector{<:ITensor})
         # but we get zR[k+2] in expct
         if k <= L-3
             expct[k] *= prod(zR[k+2:end]) # sites k+1:L correspond to indices k:L-1 = k:end
+        end
+    end
+
+    dmc!(ψ)
+    return expct
+end
+
+function measure_nsite_ops(ψ :: MPS, A :: Vector{<:ITensor})
+    # function assumes DMC with center-site 1
+    @cassert check_dmc(ψ,1)
+    @cassert length(A) == length(ψ)-2
+    n = length(inds(A[1]))
+    @cassert ( A .|> inds .|> length .== n) |> all
+
+    # this really should be a parameter to the MPS!
+    T = promote_type(eltype.(ψ)..., eltype.(A)...)
+
+    L = length(ψ)
+
+    @cassert L >= 2
+    @cassert length(A) == L - n+1
+
+    if length(A) == 0 return Float64[] end
+    
+    sites = siteinds(ψ)
+    zL = zeros(T,L-1)
+    zR = zeros(T,L-1)
+    d = dim(sites[1])
+
+    expct = zeros(T, L-n+1)
+
+    # j labels the tensor whose trace we record
+    for j = L:-1:n+1
+        ψj = ψ.data[j]
+        zR[j-1] = otrace(ψj,Index[]) |> ITensors.scalar
+    end
+
+    # k labels the site where we want the expectation value
+    # j labels the last tensor left of that site, whose trace we record
+
+
+    for k = 1:(L-n+1)
+        if 2 <= k
+            sweep_dmc!(ψ, k-1,k)
+        end
+
+        if n == 1
+            nsite_tensor = otrace(ψ[k], sites[k:k])
+        elseif n == 2
+            #Doing the otraces first is a little more complex, but it's also a little performance win
+            nsite_tensor = otrace(ψ[k],   sites[k:k]     ∪ commoninds(ψ[k], ψ[k+1]))  *
+                           otrace(ψ[k+1], sites[k+1:k+1] ∪ commoninds(ψ[k], ψ[k+1]))
+        else
+            nsite_tensor = prod(  [ otrace(ψ[k], sites[k:k] ∪ commoninds(ψ[k], ψ[k+1])) ]
+                                  ∪ ψ[k+1:k+n-2]
+                                  ∪ [ otrace(ψ[k+n-1], sites[k+n-1:k+n-1] ∪ commoninds(ψ[k+n-2], ψ[k+n-1])) ] )
+        end
+        @assert (nsite_tensor |> inds |> Set) == (A[k] |> inds |> Set)
+        expct[k] = nsite_tensor*A[k] |> ITensors.scalar
+
+        if 2 <= k
+            j = k-1
+            ψj = ψ.data[j]
+            zL[j] = otrace(ψj, Index[]) |> ITensors.scalar
+            expct[k] *= prod(zL[1:k-1])
+        end
+
+        #should this not be zR[k+n:end]?
+        # e.g.
+        #   k = 1, n = 3
+        #   k+2 = 3
+        # but we get zR[k+2] in expct
+        if k <= L-n
+            expct[k] *= prod(zR[k+n-1:end]) 
         end
     end
 

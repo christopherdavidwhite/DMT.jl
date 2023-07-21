@@ -1,3 +1,5 @@
+using PropCheck
+
 a1 = Index(2)
 a2 = Index(3)
 a3 = Index(5)
@@ -409,6 +411,55 @@ end
             @test mto_expct ≈ tensor_expct
         end
     end
+end
+
+@testset "measure_nsite_ops" begin
+
+    function check_nsite_ops_F64( L, n, χ)
+        s = [Index(2) for _ in 1:L]
+        
+        ψ = randomMPS(s, χ)
+        orthogonalize!(ψ,1)
+        dmc!(ψ)
+        ψt = prod(ψ)
+
+        A = [randomITensor(s[j:j+n-1]) for j in 1:L-n+1]
+        embedded_ops = [embed_itensor_doubled(a,s) for a in A]
+
+        tensor_expct = [a*ψt |> ITensors.scalar for a in embedded_ops]
+        mpo_expct = measure_nsite_ops(ψ,A)
+
+        return norm(tensor_expct - mpo_expct) < 1e-10
+    end
+
+    function check_against_threesite(L,χ)
+        s = [Index(2) for _ in 1:L]
+        n = 3
+        
+        ψ = randomMPS(s, χ)
+        orthogonalize!(ψ,1)
+        dmc!(ψ)
+        ψt = prod(ψ)
+
+        A = [randomITensor(s[j:j+n-1]) for j in 1:L-n+1]
+
+        nsite_expct = measure_nsite_ops(ψ,A)
+        threesite_expct = measure_threesite_ops(ψ,A)
+
+        return norm(nsite_expct - threesite_expct) < 1e-10
+    end
+
+
+    @test check(splat(check_nsite_ops_F64), 
+                interleave(filter( x -> x >= 2, ival(7)),
+                           filter( x -> x >= 1, ival(4)),
+                           filter( x -> x >= 1, ival(5))))
+
+     @test check(splat(check_against_threesite), 
+                interleave(filter( x -> x >= 3, ival(6)), 
+                           filter( x -> x >= 1, ival(5))))
+   
+    
 end
 
 @testset "apply_dmt3_left! notrunc" begin

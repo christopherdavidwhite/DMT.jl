@@ -203,7 +203,7 @@ function run_te(params, state = nothing)
     svnm = (params ∪ dmt_params) |> Dict |> savename
     fn = datadir("$jobname/$subdate/$commit/$svnm/")
     fn |> dirname |> mkpath
-    @show fn
+    @show fn; flush(stdout)
     state_fn = fn * "state.ser"
 
     df = (params ∪
