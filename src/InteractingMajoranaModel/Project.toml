@@ -1,0 +1,14 @@
+name = "InteractingMajoranaModel"
+uuid = "a671c2b4-7304-47ac-b3b9-e74453f5007c"
+authors = ["Christopher White <christopher.white@alumni.rice.edu>"]
+version = "0.1.0"
+
+[deps]
+DMT = "9c44f795-9d84-4883-8688-ed6ea0be3dc8"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+FormalAlgebra = "f04e9c67-62de-4368-8c4c-bce66f62c997"
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
+Match = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+PropCheck = "ca382230-33be-11e9-0059-d981d03070e4"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
