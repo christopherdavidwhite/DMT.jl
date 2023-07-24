@@ -69,13 +69,26 @@ function majorana_energy_current_ops(U,s)
     return [cdw_op(curr, s[j-1:j+3]) for j = 2:L-3 ]
 end
 
-majorana_energy_current_vecs(B,C, current_ops) = [ prod([curr] ∪ C[j:j+4] ∪ B[j:j+4]) for (j,curr) = enumerate(current_ops)]
+function double_hermitian(tensor, B, C)
+    dt = tensor
+    for c in C dt *= c end
+    for b in B dt *= b end
+    @cassert imag(dt) |> norm .< 1e-10
+    return real(dt)
+end
+
+
+majorana_energy_current_vecs(B,C, current_ops) = [ double_hermitian(curr, B[j:j+4], C[j:j+4]) for (j,curr) = enumerate(current_ops)]
 
 function majorana_energy_current_mpo(sharpind, current_vecs,j)
     L = length(sharpind)
     Aψ = [onehot(sharpind[j] => 1) for j = 1:L]
     Aψ[j:j+4] .= MPS(current_vecs[j], sharpind[j:j+4])
-    MPS(Aψ)
+    ψ = MPS(Aψ)
+    orthogonalize!(ψ,1)
+    dmc!(ψ)
+    @cassert check_dmc(ψ,1,quiet=false)
+    return ψ
 end
 
 function majorana_energy_density_tensors_msymmetric(U, s)

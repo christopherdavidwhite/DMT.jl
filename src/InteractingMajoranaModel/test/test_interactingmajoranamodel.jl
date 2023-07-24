@@ -4,6 +4,7 @@ using InteractingMajoranaModel
 using ITensors
 
 
+
 @testset "ladder to Pauli-representation current" begin
     L = 18
     j = 9
@@ -26,6 +27,7 @@ using ITensors
     j = 4
     dtε2 =  im*(Hσ*εσ(j) - εσ(j)*Hσ)
     divσ2 = currentσ(L,U,j-1) - currentσ(L,U,j)
+    @test ( currentσ(L,U,j).V .|> imag |>  norm ) < 1e-10
     @test length( (dtε2 - divσ2).V ) == 0
 
     ################## energy density to tensor ######################
@@ -104,4 +106,15 @@ end
 
 
 
-
+@testset "smoketest ITensor setup" begin 
+    # smoketest
+    L = 20
+    U = 0.3
+    s = siteinds("S=1/2", L)
+    B,C,sharpind = infrastructure_tensors(s)
+    current_ops = majorana_energy_current_ops(U,s)
+    @test length(current_ops) == L - 4
+    current_vecs = majorana_energy_current_vecs(B,C,current_ops)
+    @test ( current_vecs .|> eltype |> unique |> scalar  )== Float64
+    @test length(current_vecs) == length(current_ops)
+end
