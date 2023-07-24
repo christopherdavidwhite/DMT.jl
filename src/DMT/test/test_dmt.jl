@@ -8,6 +8,16 @@ a4 = Index(7)
 
 Nr = 10
 
+@testset "check" begin
+    
+    dmt_set_check!(false)
+    @cassert false
+    @test dmt_read_check() == false
+    
+    dmt_set_check!(true)
+    @test_throws DMT.AssertionError("false") (@cassert false)
+end
+
 @testset "thick_qr_qdag" begin
     for r = 1:Nr
 	A = randomITensor(a1,a2,a3,a4)
