@@ -1,31 +1,36 @@
-global CHECK=false
-
 import ITensors.scalar
 export @cassert, @showinds, ⊗,scalar, arr1d, combine_by_prime,unzip
 export embed_itensor_doubled
+
+export dmt_set_check!, dmt_read_check
+
 # conditional assert: if global flag CHECK is set, do the assert thing.
 # Copy / pasted from julia 1.6.1.
+global _CHECK = true
+CHECK() = _CHECK 
+function dmt_set_check!(v :: Bool)
+    global _CHECK = v
+end
+dmt_read_check() = _CHECK
 
 macro cassert(ex, msgs...)
-    if CHECK
-        msg = isempty(msgs) ? ex : msgs[1]
-        if isa(msg, AbstractString)
-            msg = msg # pass-through
-        elseif !isempty(msgs) && (isa(msg, Expr) || isa(msg, Symbol))
-            # message is an expression needing evaluating
-            msg = :(Main.Base.string($(esc(msg))))
-        elseif isdefined(Main, :Base) && isdefined(Main.Base, :string) && applicable(Main.Base.string, msg)
-            msg = Main.Base.string(msg)
-        else
-            # string() might not be defined during bootstrap
-            msg = quote
-                msg = $(Expr(:quote,msg))
-                isdefined(Main, :Base) ? Main.Base.string(msg) :
-                    (Core.println(msg); "Error during bootstrap. See stdout.")
-            end
+    msg = isempty(msgs) ? ex : msgs[1]
+    if isa(msg, AbstractString)
+        msg = msg # pass-through
+    elseif !isempty(msgs) && (isa(msg, Expr) || isa(msg, Symbol))
+        # message is an expression needing evaluating
+        msg = :(Main.Base.string($(esc(msg))))
+    elseif isdefined(Main, :Base) && isdefined(Main.Base, :string) && applicable(Main.Base.string, msg)
+        msg = Main.Base.string(msg)
+    else
+        # string() might not be defined during bootstrap
+        msg = quote
+            msg = $(Expr(:quote,msg))
+            isdefined(Main, :Base) ? Main.Base.string(msg) :
+                (Core.println(msg); "Error during bootstrap. See stdout.")
         end
-        return :($(esc(ex)) ? $(nothing) : throw(AssertionError($msg)))
     end
+    return :(( !$(@__MODULE__).CHECK() || $(esc(ex))) ? $(nothing) : throw(AssertionError($msg)))
 end
 
 macro showinds(nm)
