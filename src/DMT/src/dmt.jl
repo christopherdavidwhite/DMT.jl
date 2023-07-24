@@ -680,8 +680,8 @@ end
 function measure_nsite_ops(ψ :: MPS, A :: Vector{<:ITensor})
     # function assumes DMC with center-site 1
     @cassert check_dmc(ψ,1)
-    @cassert length(A) == length(ψ)-2
     n = length(inds(A[1]))
+    @cassert length(A) == length(ψ)-n+1
     @cassert ( A .|> inds .|> length .== n) |> all
 
     # this really should be a parameter to the MPS!
