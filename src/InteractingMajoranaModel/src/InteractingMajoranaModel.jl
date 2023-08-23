@@ -32,7 +32,7 @@ function current(L,U,j)
     C(k) = η[k]*η[k+1]*η[k+2]*η[k+4]*η[k+5]*η[k+6]
     D(k) = η[k]*η[k+4]
     current = -im*2* ( P(j) - U *   ( +im*A(j-2) + im*A(j-1) + im* B(j-1) + im*B(j))
-                       + U^2 * ( D(j-1) - C(j-3) - C(j-2) - C(j-1) ) )
+                            + U^2 * ( D(j-1) - C(j-3) - C(j-2) - C(j-1) ) )
     return current
 end
 
@@ -78,7 +78,43 @@ function double_hermitian(tensor, B, C)
 end
 
 
-majorana_energy_current_vecs(B,C, current_ops) = [ double_hermitian(curr, B[j:j+4], C[j:j+4]) for (j,curr) = enumerate(current_ops)]
+# The 2^2.5 comes from my convention about where to cancel the Hilbert space factor of 2^L.
+#
+# I want to silently map all my operators A
+#    A -> 2^(L/2) A
+# so that
+#   \| A \|^2 = tr A* A
+# or
+#   < A, B > = tr A* B
+# is something reasonable (i.e. independent of system size).
+# This plays really nicely with my choice of orthogonal, Hermitian basis:
+# an MPO representation of σ^x_j, for example, has tensors
+#
+#  [1]     [1] [0] [1]     [1]
+#  [0] ... [0] [1] [0] ... [0]
+#  [0]     [0] [0] [0]     [0]
+#  [0]     [0] [0] [0]     [0] .
+#
+# Easy! Orthonormal!
+#
+# The problem comes when I take an arbitrary 5-site operator and apply double_hermitian.
+# double_herimitian just turns this into a 5-leg tensor.
+# But when I take an expectation value against some other operator,
+# I should think of that 5-leg tensor as an MPO
+#
+#  [1]     [1]   [       ]  [1]     [1]
+#  [0] ... [0]   [   A   ]  [0] ... [0]
+#  [0]     [0]   [       ]  [0]     [0]
+#  [0]     [0]   [       ]  [0]     [0] .
+#
+# Each of the [1 0 0 0] "identity" tensors carries an implicit 1/sqrt(2).
+# So far so good.
+# 
+# But that only gets us up to 2^{ (L-5)/2 }.
+# We need to account for the extra 2^(5/2) from the five sites where that tensor sits.
+# That's the 2^2.5 here.
+
+majorana_energy_current_vecs(B,C, current_ops) = [ double_hermitian(curr, B[j:j+4], C[j:j+4]) / 2^2.5 for (j,curr) = enumerate(current_ops) ]
 
 function majorana_energy_current_mpo(sharpind, current_vecs,j)
     L = length(sharpind)
