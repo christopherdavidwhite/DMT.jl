@@ -85,10 +85,10 @@ function combine_by_prime(H :: ITensor)
 end
 
 function combine_by_id(H :: ITensor)
-    ids = id.(inds(B)) |> unique
+    ids = id.(inds(H)) |> unique
     Hc = H
     for hex in ids
-        jhex = filter(x -> id(x) == hex, J)
+        jhex = filter(x -> id(x) == hex, ids)
         C = combiner(jhex...)
         Hc = C*Hc
     end
