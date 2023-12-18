@@ -5,6 +5,6 @@ using ITensors
 using NDTensors
 
 include("util.jl")
-include("dmt.jl")
+include("dmt_functions.jl")
 
 end
