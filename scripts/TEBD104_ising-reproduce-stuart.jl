@@ -83,12 +83,12 @@ function apply_trotterstep_itensorexample!(gates, χmax, ψ)
     L = length(ψ)
     for j = 1:L-1
 	@cassert check_dmc(ψ,j,quiet=false)
-	apply_dmt!(gates[j], ψ, j, χmax, :r)
+	apply_dmt!(gates[j], ψ, j, Dict(:maxdim => χmax), :r)
 	@cassert check_dmc(ψ,j+1,quiet=false)
     end
     for j = L-1:-1:1
 	@cassert check_dmc(ψ,j+1,quiet=false)
-	apply_dmt!(gates[j], ψ, j, χmax, :l)
+	apply_dmt!(gates[j], ψ, j, Dict(:maxdim => χmax), :l)
 	@cassert check_dmc(ψ,j,quiet=false)
     end
 end
