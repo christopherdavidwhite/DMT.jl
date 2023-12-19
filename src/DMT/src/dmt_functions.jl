@@ -92,7 +92,7 @@ function dmt(A    :: ITensor,
              σR   :: Index, #space on R to preserve
              αL   :: Vector{<:Index},
              dmt_params, 
-             svd_params = Dict([:cutoff => 1e-16, :use_relative_cutoff => true])
+             svd_params = Dict{Symbol,Any}(:use_relative_cutoff => true, :cutoff => 1e-16)
              )
 
     @assert [σL, σR] ∪ αL ⊆ inds(A)
