@@ -149,11 +149,12 @@ function getχ(ψ :: MPS)
     return χ
 end
 
-lgLmax = 7
-lgχmax = 9
+lgLmax = 4
+lgχmin = 4
+lgχmax = 4
 
 Ls = 2 .^ (3:lgLmax)
-χmaxs = 2 .^ (1:lgχmax)
+χmaxs = 2 .^ (lgχmin:lgχmax)
 dts = [0.125]
 
 dumb_time_estimate(d) = d[:L]*d[:χmax]^3/d[:dt]
@@ -165,13 +166,15 @@ sort!(variable_param_list, by=dumb_time_estimate)
 trotter = :bous
 jobname = "T104"
 subdate = today()
-T = 70
+T = 10
 hx = 1.4
 hz = 0.9045
 
-using LibGit2
-repo = GitRepo("/home/christopher/work/2014-12-TEBD/")
-commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
+# using LibGit2
+# repo = GitRepo("/home/christopher/work/2014-12-TEBD/")
+# commit = "$(LibGit2.GitShortHash(repo |> LibGit2.head |> LibGit2.GitHash, 6))"
+
+commit  = "000000"
 
 init = :ε
 
